@@ -1,0 +1,263 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+:root {
+  --primary-color: #ff4500;
+  --secondary-color: #0079d3;
+  --background-color: #1a1a1b;
+  --card-background: #272729;
+  --text-color: #d7dadc;
+  --secondary-text-color: #818384;
+  --border-color: #343536;
+  --gradient-start: #ff4500;
+  --gradient-end: #ff8717;
+}
+
+* {
+  font-family: 'Pretendard', sans-serif!important;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 1rem 2rem;
+  background-color: rgba(39, 39, 41, 0.8);
+  backdrop-filter: blur(10px);
+  transition: background-color 0.3s ease;
+}
+
+header.scrolled {
+  background-color: var(--card-background);
+}
+
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1rem;
+}
+
+.nav-links a {
+  color: var(--text-color);
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: background-color 0.3s ease;
+}
+
+.nav-links a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-links a.cta {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.nav-links a.cta:hover {
+  background-color: #ff5b1f;
+}
+
+section {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.hero {
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  text-align: center;
+  color: white;
+}
+
+.hero-content {
+  max-width: 800px;
+}
+
+.hero h1 {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+
+.hero p {
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+}
+
+.cta-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.cta-buttons a {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+.cta-buttons a:active {
+  transform: translateY(1px);
+}
+
+.cta-buttons a.primary {
+  background-color: white;
+  color: var(--primary-color);
+}
+
+.cta-buttons a.primary:hover {
+  background-color: #f0f0f0;
+}
+
+.cta-buttons a.secondary {
+  background-color: transparent;
+  color: white;
+  border: 2px solid white;
+}
+
+.cta-buttons a.secondary:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.features {
+  background-color: var(--background-color);
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.feature {
+  background-color: var(--card-background);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.feature:hover {
+  transform: translateY(-5px);
+}
+
+.feature-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.feature h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature p {
+  color: var(--secondary-text-color);
+}
+
+.communities {
+  background-color: var(--card-background);
+}
+
+.communities-content {
+  text-align: center;
+  max-width: 800px;
+}
+
+.communities h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.communities p {
+  font-size: 1.2rem;
+  color: var(--secondary-text-color);
+  margin-bottom: 2rem;
+}
+
+.community-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.community {
+  background-color: var(--background-color);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.community:hover {
+  transform: translateY(-5px);
+}
+
+.community-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.community h3 {
+  font-size: 1rem;
+}
+
+footer {
+  background-color: var(--card-background);
+  color: var(--secondary-text-color);
+  text-align: center;
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 3rem;
+  }
+
+  .hero p {
+    font-size: 1.2rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .community-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
