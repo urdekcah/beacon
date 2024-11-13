@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Beacon</title>
+  <link rel="stylesheet" href="zaregistrirovatsya.css">
+</head>
+<body>
+  <div class="signup-container">
+    <div class="signup-header">
+      <h1>Join Beacon</h1>
+      <p>Create your account and start exploring!</p>
+    </div>
+    <form class="signup-form" method="POST" action="/zaregistrirovatsya">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required minlength="3" maxlength="20" pattern="^[a-zA-Z0-9_-]+$">
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="8">
+      </div>
+      
+      <div class="form-group">
+        <label for="confirm-password">Confirm Password</label>
+        <input type="password" id="confirm-password" name="confirmPassword" required minlength="8">
+      </div>
+      
+      <div class="form-group">
+        <label for="birthdate">Date of Birth</label>
+        <input type="date" id="birthdate" name="birthdate" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="interests">Main Interest</label>
+        <select id="interests" name="interests" required>
+          <option value="">Select your main interest</option>
+          <option value="technology">Technology</option>
+          <option value="science">Science</option>
+          <option value="gaming">Gaming</option>
+          <option value="sports">Sports</option>
+          <option value="entertainment">Entertainment</option>
+          <option value="news">News</option>
+          <option value="art">Art</option>
+          <option value="music">Music</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="bio">Short Bio (Optional)</label>
+        <input type="text" id="bio" name="bio" maxlength="160" placeholder="Tell us a bit about yourself (max 160 characters)">
+      </div>
+
+      <button type="submit">Create Account</button>
+    </form>
+    <div class="login-link">
+      Already have an account? <a href="#">Log in</a>
+    </div>
+  </div>
+</body>
+</html>
