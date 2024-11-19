@@ -70,6 +70,10 @@ app.get("/zaregistrirovatsya", csrfProtection, (req, res) => {
   res.render("signup", { csrfToken: req.csrfToken() });
 });
 
+app.get("/voyti", csrfProtection, (req, res) => {
+  res.render("signin", { csrfToken: req.csrfToken() });
+});
+
 app.post(
   "/zaregistrirovatsya",
   [
@@ -141,6 +145,67 @@ app.post(
     }
   }
 );
+
+app.post(
+  "/voyti",
+  [
+    body("email")
+      .isEmail()
+      .withMessage("Please provide a valid email address."),
+    body("password")
+      .isLength({ min: 8 })
+      .withMessage("Password must be at least 8 characters long.")
+  ], async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          errors: errors.array().reduce((acc, err) => {
+            acc[err.param] = err.msg;
+            return acc;
+          }, {})
+        });
+      }
+
+      const { email, password } = req.body;
+
+      const connection = await pool.getConnection();
+      try {
+        const [users] = await connection.execute(
+          'SELECT id, username, password, nickname FROM users WHERE email = ?',
+          [email]
+        );
+
+        if (users.length === 0) {
+          return res.status(400).json({ 
+            errors: { email: 'Invalid email or password' }
+          });
+        }
+
+        const user = users[0];
+        const isValidPassword = await verifyPassword(password, user.password);
+
+        if (!isValidPassword) {
+          return res.status(400).json({ 
+            errors: { email: 'Invalid email or password' }
+          });
+        }
+
+        req.session.userId = user.id;
+        req.session.username = user.username;
+        req.session.nickname = user.nickname;
+
+        res.json({ success: true, redirectUrl: '/?home=feed' });
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ error: 'An error occurred during login' });
+    }
+  }
+);
+
 
 app.get("/dobro-pozhalovat", (req, res) => {
   res.render("welcome");
