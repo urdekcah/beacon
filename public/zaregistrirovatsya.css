@@ -127,7 +127,7 @@ button:active {
 }
 
 .error-message {
-  color: #ff6b6b;
+  color: white;
   font-size: 0.9rem;
   margin-top: 0.25rem;
 }
@@ -136,4 +136,60 @@ button:active {
   .signup-container {
     padding: 1.5rem;
   }
+}
+
+.error-container {
+  background-color: #ff6b6b;
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  color: white;
+  animation: slideDown 0.3s ease-out;
+}
+
+.error-title {
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.error-message {
+  font-size: 0.9rem;
+}
+
+.field-error {
+  display: none;
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+input:invalid:not(:placeholder-shown),
+select:invalid:not(:placeholder-shown) {
+  border-color: #ff6b6b;
+}
+
+input:valid:not(:placeholder-shown),
+select:valid:not(:placeholder-shown) {
+  border-color: #00b894;
 }
