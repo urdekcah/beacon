@@ -8,8 +8,11 @@ const mysql = require("mysql2/promise");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 
+const fs = require("fs");
+const TOML = require('@iarna/toml');
 const dotenv = require("../lib/dotenv");
 dotenv.load();
+const CONFIG = loadConfig();
 
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -21,7 +24,7 @@ const dbConfig = {
 const pool = mysql.createPool(dbConfig);
 const sessionStore = new MySQLStore({}, pool);
 
-const PORT = 3000;
+const PORT = CONFIG["server"]["port"];
 const app = express();
 
 app.use(express.urlencoded({ extended: true }));
@@ -45,6 +48,16 @@ app.use(session({
 
 const csrfProtection = csrf({ cookie: true });
 app.use(csrfProtection);
+
+function loadConfig() {
+  if (!fs.existsSync('./Beacon.toml')) {
+    console.error('Config file not found');
+    process.exit(1);
+  }
+
+  const config = fs.readFileSync('./Beacon.toml', 'utf8');
+  return TOML.parse(config);
+}
 
 const hashPassword = async (password) => {
   try {
@@ -72,6 +85,14 @@ app.get("/zaregistrirovatsya", csrfProtection, (req, res) => {
 
 app.get("/voyti", csrfProtection, (req, res) => {
   res.render("signin", { csrfToken: req.csrfToken() });
+});
+
+app.get("/sozdat", csrfProtection, (req, res) => {
+  res.render("create", {
+    colors: CONFIG["community"]["allowed_colors"],
+    icons: CONFIG["community"]["allowed_icons"],
+    csrfToken: req.csrfToken()
+  });
 });
 
 app.post(

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create a Community - Beacon</title>
+  <link rel="stylesheet" href="sozdat.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Create Your Community</h1>
+
+    <div class="content">
+      <div class="form-container">
+        <form id="create-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="form-group">
+            <label for="name">Community Name</label>
+            <input type="text" id="name" name="name" required maxlength="21" pattern="^[a-zA-Z0-9_]{3,21}$">
+            <small>Community names must be between 3-21 characters, and can only contain letters, numbers, or underscores.</small>
+            <div class="error-message" style="display: none;" data-field="name">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" required maxlength="500"></textarea>
+            <small><span id="description-char-count">0</span>/500 characters</small>
+            <div class="error-message" style="display: none;" data-field="description">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Community Color</label>
+            <div class="color-picker" id="color"></div>
+            <div class="error-message" style="display: none;" data-field="color">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Community Icon</label>
+            <div class="icon-selector" id="icon"></div>
+            <div class="error-message" style="display: none;" data-field="icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tags">Tags</label>
+            <div class="tags-input" id="tags-input">
+              <input type="text" id="tag-input" placeholder="Add a tag and press Enter">
+            </div>
+            <small>Add up to 5 tags to describe your community</small>
+            <div class="error-message" style="display: none;" data-field="tags">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span></span>
+            </div>
+          </div>
+
+          <button type="submit" class="submit-button">Create Community</button>
+        </form>
+      </div>
+
+      <div class="preview-container">
+        <div class="preview">
+          <h2>Preview</h2>
+          <div class="preview-header">
+            <div class="preview-icon" id="preview-icon"></div>
+            <div>
+              <div class="preview-name" id="preview-name">Community Name</div>
+              <div id="preview-type">Public Community</div>
+            </div>
+          </div>
+          <div class="preview-description" id="preview-description">Community description will appear here.</div>
+          <div class="preview-tags" id="preview-tags"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
