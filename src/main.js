@@ -8,6 +8,8 @@ const mysql = require("mysql2/promise");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 
+const { requireAuth } = require('./middleware/auth');
+
 const fs = require("fs");
 const TOML = require('@iarna/toml');
 const dotenv = require("../lib/dotenv");
@@ -87,13 +89,112 @@ app.get("/voyti", csrfProtection, (req, res) => {
   res.render("signin", { csrfToken: req.csrfToken() });
 });
 
-app.get("/sozdat", csrfProtection, (req, res) => {
+app.get("/sozdat", requireAuth, csrfProtection, (req, res) => {
   res.render("create", {
     colors: CONFIG["community"]["allowed_colors"],
     icons: CONFIG["community"]["allowed_icons"],
     csrfToken: req.csrfToken()
   });
 });
+
+app.post(
+  "/sozdat",
+  requireAuth,
+  [
+    body("name")
+    .matches(/^[a-zA-Z0-9_-]+$/)
+      .isLength({ min: 3, max: 21 })
+      .withMessage("Community name must be 3-21 characters long."),
+    body("description")
+      .isLength({ min: 3, max: 150 })
+      .withMessage("Description must be 3-150 characters long."),
+  ], async (req, res) => {
+    const connection = await pool.getConnection();
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ 
+          errors: errors.array().reduce((acc, err) => {
+            acc[err.param] = err.msg;
+            return acc;
+          }, {})
+        });
+      }
+
+      const { name, description, color, icon } = req.body;
+      const tags = req.body.tags.split(",").map(tag => tag.trim());
+      const userId = req.session.userId;
+
+      if (tags.length > 5) {
+        return res.status(400).json({ 
+          errors: { tags: 'You can only add up to 5 tags' }
+        });
+      }
+
+      if (!CONFIG["community"]["allowed_colors"].includes(color)) {
+        return res.status(400).json({ 
+          errors: { color: 'Invalid color' }
+        });
+      }
+
+      if (!CONFIG["community"]["allowed_icons"].includes(icon)) {
+        return res.status(400).json({ 
+          errors: { icon: 'Invalid icon' }
+        });
+      }
+
+      await connection.beginTransaction();
+
+      const [existing] = await connection.execute(
+        'SELECT id FROM communities WHERE name = ?',
+        [name]
+      );
+
+      if (existing.length > 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          errors: { name: 'Community name already exists' }
+        });
+      }
+
+      const [result] = await connection.execute(
+        `INSERT INTO communities 
+         (name, description, icon, color, tags, creator_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [name, description, icon, color, JSON.stringify(tags), userId]
+      );
+
+      await connection.execute(
+        `INSERT INTO community_memberships 
+         (community_id, user_id)
+         VALUES (?, ?)`,
+        [result.insertId, userId]
+      );
+
+      await connection.commit();
+
+      res.status(201).json({
+        success: true,
+        redirectUrl: `/b/${name}`
+      });
+    } catch (error) {
+      await connection.rollback();
+    
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(400).json({
+          errors: { name: 'Community name already exists' }
+        });
+      }
+
+      console.error('Create community error:', error);
+      res.status(500).json({
+        error: 'An error occurred while creating the community'
+      });
+    } finally {
+      connection.release();
+    }
+  }
+)
 
 app.post(
   "/zaregistrirovatsya",
