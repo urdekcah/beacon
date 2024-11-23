@@ -8,7 +8,7 @@ const mysql = require("mysql2/promise");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
 
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, requireAuthJson } = require('./middleware/auth');
 
 const fs = require("fs");
 const TOML = require('@iarna/toml');
@@ -100,6 +100,7 @@ app.get("/sozdat", requireAuth, csrfProtection, (req, res) => {
 app.post(
   "/sozdat",
   requireAuth,
+  csrfProtection,
   [
     body("name")
     .matches(/^[a-zA-Z0-9_-]+$/)
@@ -146,7 +147,7 @@ app.post(
       await connection.beginTransaction();
 
       const [existing] = await connection.execute(
-        'SELECT id FROM communities WHERE name = ?',
+        'SELECT id FROM communities WHERE LOWER(name) = LOWER(?)',
         [name]
       );
 
@@ -198,6 +199,7 @@ app.post(
 
 app.post(
   "/zaregistrirovatsya",
+  csrfProtection,
   [
     body("username")
       .isLength({ min: 3, max: 50 })
@@ -270,6 +272,7 @@ app.post(
 
 app.post(
   "/voyti",
+  csrfProtection,
   [
     body("email")
       .isEmail()
@@ -328,6 +331,114 @@ app.post(
   }
 );
 
+app.get("/b/:name", csrfProtection, async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [communities] = await connection.execute(
+      `SELECT c.*, u.nickname as creator_username 
+       FROM communities c 
+       LEFT JOIN users u ON c.creator_id = u.id 
+       WHERE LOWER(c.name) = LOWER(?)`,
+      [req.params.name]
+    );
+
+    if (communities.length === 0) {
+      // return res.status(404).render("404", {
+      //   message: "Community not found"
+      // });
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
+    const community = communities[0];
+
+    let isMember = false;
+    
+    if (req.session.userId) {
+      const [memberships] = await connection.execute(
+        `SELECT * FROM community_memberships 
+         WHERE community_id = ? AND user_id = ?`,
+        [community.id, req.session.userId]
+      );
+      
+      isMember = memberships.length > 0;
+      isAdmin = community.creator_id === req.session.userId;
+    }
+
+    res.render("board", {
+      community,
+      isMember,
+      isAdmin,
+      isLoggedIn: !!req.session.userId,
+      csrfToken: req.csrfToken()
+    });
+
+  } catch (error) {
+    console.error('Community page error:', error);
+    return res.status(500).end();
+    // res.status(500).render("error", {
+    //   message: "An error occurred while loading the community"
+    // });
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/i/UpdateSubscriptions", requireAuthJson, csrfProtection, async (req, res) => {
+  const { communityId, subscribeState } = req.body;
+  const userId = req.session.userId;
+
+  const handleError = (status, message) => res.status(status).json({ error: message });
+
+  const connection = await pool.getConnection();
+  try {
+    const [[community]] = await connection.execute(
+      'SELECT creator_id FROM communities WHERE id = ?',
+      [communityId]
+    );
+
+    if (!community) {
+      return handleError(400, 'Community not found');
+    }
+
+    const [[membership]] = await connection.execute(
+      'SELECT 1 FROM community_memberships WHERE community_id = ? AND user_id = ?',
+      [communityId, userId]
+    );
+
+    if (subscribeState === 'SUBSCRIBED') {
+      if (membership) {
+        return handleError(400, 'Already subscribed');
+      }
+      await connection.execute(
+        'INSERT INTO community_memberships (community_id, user_id) VALUES (?, ?)',
+        [communityId, userId]
+      );
+    } 
+    else if (subscribeState === 'NONE') {
+      if (community.creator_id === userId) {
+        return handleError(400, 'Owner cannot unsubscribe');
+      }
+      if (!membership) {
+        return handleError(400, 'Not subscribed');
+      }
+      await connection.execute(
+        'DELETE FROM community_memberships WHERE community_id = ? AND user_id = ?',
+        [communityId, userId]
+      );
+    }
+    else {
+      return handleError(400, 'Invalid subscription state');
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Update subscriptions error:', error);
+    handleError(500, 'An error occurred while updating subscriptions');
+  } finally {
+    connection.release();
+  }
+});
 
 app.get("/dobro-pozhalovat", (req, res) => {
   res.render("welcome");

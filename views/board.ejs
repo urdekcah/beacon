@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>b/<%= community.name %> - Beacon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/obshchestvo.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="#" class="logo">Beacon</a>
+      <div class="search-bar">
+        <input type="text" placeholder="Search...">
+      </div>
+      <div class="user-actions">
+      <% if (!isLoggedIn) { %>
+        <a href="/voyti">Log In</a>
+        <a href="/zaregistrirovatsya">Sign Up</a>
+      <% } else { %>
+        <a href="/vykhod">Log Out</a>
+      <% } %>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div class="content">
+      <div class="community-banner" style="background-color: <%= community.color %>!important;">
+        <h1 class="community-title">b/<%= community.name %></h1>
+      </div>
+      <div class="community-info">
+        <!-- <p class="community-description">A community dedicated to the latest advancements and discussions in quantum computing.</p> -->
+        <div class="community-stats">
+          <div class="stat">
+            <span class="stat-value"><%= community.member_count %></span>
+            <span class="stat-label">Members</span>
+          </div>
+        </div>
+        <% if (isLoggedIn) { %>
+          <button class="join-community" id="joinButton">
+            <% if (!isMember) { %>
+              Join Community
+            <% } else { %>
+              Leave Community
+            <% } %>
+          </button>
+          <button class="create-post" onclick="location.href = '/b/<%= community.name %>/submit'">Create Post</button>
+        <% } %>
+      </div>
+      <section class="posts">
+        <!--posts-->
+      </section>
+    </div>
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h2 class="sidebar-title">About Community</h2>
+        <p><%= community.description %></p>
+      </div>
+      <div class="sidebar-section">
+        <h2 class="sidebar-title">Related communitys</h2>
+        <ul>
+        </ul>
+      </div>
+    </aside>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const joinButton = document.getElementById('joinButton');
+      let isJoined = <%= isMember %>;
+      joinButton.addEventListener('click', function() {
+        fetch('/i/UpdateSubscriptions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'CSRF-Token': '<%= csrfToken %>'
+          },
+          body: JSON.stringify({
+            communityId: "<%= community.id %>",
+            subscribeState: isJoined ? "NONE" : "SUBSCRIBED"
+          })
+        })
+        .then(response => {
+          if (response.ok)
+            window.location.reload();
+        });
+      });
+    });
+  </script>
+</body>
+</html>
