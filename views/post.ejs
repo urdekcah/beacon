@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= post.title %>: b/<%= community.name %></title>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.min.js"></script>
+  <link rel="stylesheet" href="/css/post.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="#" class="logo">Beacon</a>
+      <div class="search-bar">
+        <input type="text" placeholder="Search...">
+      </div>
+      <div class="user-actions">
+        <% if (!isLoggedIn) { %>
+          <a href="/voyti">Log In</a>
+          <a href="/vykhod">Sign Up</a>
+        <% } %>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <article class="post">
+      <h1 class="post-title"><%= post.title %></h1>
+      <p class="post-meta" data-timestamp="<%= post.created_at %>">
+        Posted by u/<%= post.author_username %> • <span class="relative-time"></span>
+      </p>
+      <div class="post-content">
+        <p><%= post.content %></p>
+      </div>
+      <div class="post-actions">
+        <a href="#" class="upvote">⬆️ <%= post.vote_count %></a>
+        <a href="#" class="downvote">⬇️</a>
+        <a href="#">👁️ <%= post.view_count %></a>
+        <a href="#">🔗 Share</a>
+      </div>
+    </article>
+
+    <section class="comments">
+      <h2>Comments DISABLED</h2>
+    </section>
+
+    <!-- <section class="add-comment">
+      <h3>Add a comment</h3>
+      <textarea placeholder="What are your thoughts?"></textarea>
+      <button>Comment</button>
+    </section> -->
+  </main>
+
+  <script>
+    dayjs.extend(dayjs_plugin_relativeTime);
+    const relativeTime = document.querySelectorAll('.relative-time');
+    relativeTime.forEach(node => {
+      const timestamp = node.parentNode.getAttribute('data-timestamp');
+      node.textContent = dayjs(timestamp).fromNow();
+    });
+  </script>
+</body>
+</html>
