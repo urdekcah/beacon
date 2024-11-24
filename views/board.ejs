@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>b/<%= community.name %> - Beacon</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.min.js"></script>
   <link rel="stylesheet" href="/css/obshchestvo.css">
 </head>
 <body>
@@ -50,7 +52,20 @@
         <% } %>
       </div>
       <section class="posts">
-        <!--posts-->
+        <% posts.forEach(post => { %>
+          <article class="post">
+            <h2 class="post-title"><%= post.title %></h2>
+            <p class="post-meta" data-timestamp="<%= post.created_at %>">
+              Posted by u/<%= post.author_username %> • <span class="relative-time"></span>
+            </p>
+            <div class="post-actions">
+                <a href="#" class="upvote">⬆️ <%= post.vote_count %></a>
+                <a href="#" class="downvote">⬇️</a>
+                <a href="#">👁️ <%= post.view_count %></a>
+                <a href="#">🔗 Share</a>
+            </div>
+          </article>
+        <% }); %>
       </section>
     </div>
     <aside class="sidebar">
@@ -67,6 +82,13 @@
   </main>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      dayjs.extend(dayjs_plugin_relativeTime);
+      document.querySelectorAll('.post-meta').forEach(meta => {
+        const timestamp = meta.getAttribute('data-timestamp');
+        const relativeTime = dayjs(timestamp).fromNow();
+        meta.querySelector('.relative-time').textContent = relativeTime;
+      });
+      
       const joinButton = document.getElementById('joinButton');
       let isJoined = <%= isMember %>;
       joinButton.addEventListener('click', function() {
