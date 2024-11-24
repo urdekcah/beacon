@@ -54,7 +54,9 @@
       <section class="posts">
         <% posts.forEach(post => { %>
           <article class="post">
-            <h2 class="post-title"><%= post.title %></h2>
+            <h2 class="post-title">
+              <a href="/b/<%= community.name %>/<%= post.id %>" target="_blank"><%= post.title %></a>
+            </h2>
             <p class="post-meta" data-timestamp="<%= post.created_at %>">
               Posted by u/<%= post.author_username %> • <span class="relative-time"></span>
             </p>
