@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit to b/<%= community.name %> - Beacon</title>
+  <link rel="stylesheet" href="/css/otpravit.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="#" class="logo">Beacon</a>
+      <div class="user-actions">
+        <a href="#">Profile</a>
+        <a href="/vykhod">Log Out</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div class="subreddit-info">
+      <div class="subreddit-icon" style="background-color: <%= community.color %>;!important"><%= community.icon %></div>
+      <div class="subreddit-name">b/<%= community.name %></div>
+    </div>
+
+    <form id="post-form" class="post-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" required maxlength="300" placeholder="Enter your post title">
+        <div class="char-count"><span id="title-char-count">0</span>/300</div>
+      </div>
+
+      <div class="form-group">
+        <label for="content">Content</label>
+        <textarea id="content" name="content" required placeholder="Enter your post content"></textarea>
+        <div class="char-count"><span id="content-char-count">0</span>/40000</div>
+      </div>
+
+      <button type="submit" class="submit-button">Submit Post</button>
+    </form>
+  </main>
+
+  <script id="__DANNYYE_O_SOOBSHCHESTVE__" type="application/json">{"id":<%= community.id %>,"name":"<%= community.name %>"}</script>
+  <script src="/js/otpravit.js"></script>
+</body>
+</html>

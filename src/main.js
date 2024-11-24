@@ -352,7 +352,17 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
 
     const community = communities[0];
 
+    const [posts] = await connection.execute(
+      `SELECT p.*, u.nickname as author_username
+        FROM posts p
+        LEFT JOIN users u ON p.author_id = u.id
+        WHERE p.community_id = ?
+        ORDER BY p.created_at DESC`,
+      [community.id]
+    );
+
     let isMember = false;
+    let isAdmin = false;
     
     if (req.session.userId) {
       const [memberships] = await connection.execute(
@@ -370,7 +380,8 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
       isMember,
       isAdmin,
       isLoggedIn: !!req.session.userId,
-      csrfToken: req.csrfToken()
+      csrfToken: req.csrfToken(),
+      posts
     });
 
   } catch (error) {
@@ -379,6 +390,81 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
     // res.status(500).render("error", {
     //   message: "An error occurred while loading the community"
     // });
+  } finally {
+    connection.release();
+  }
+});
+
+app.get("/b/:name/submit", requireAuth, csrfProtection, async (req, res) => {
+  const connection = await pool.getConnection();
+
+  try {
+    const [communities] = await connection.execute(
+      `SELECT c.*, u.nickname as creator_username 
+       FROM communities c 
+       LEFT JOIN users u ON c.creator_id = u.id 
+       WHERE LOWER(c.name) = LOWER(?)`,
+      [req.params.name]
+    );
+
+    if (communities.length === 0) {
+      return res.status(404).json({ error: 'Community not found' });
+    }
+
+    const community = communities[0];
+    console.log(community);
+
+    let isMember = false;
+    
+    if (req.session.userId) {
+      const [memberships] = await connection.execute(
+        `SELECT * FROM community_memberships 
+         WHERE community_id = ? AND user_id = ?`,
+        [community.id, req.session.userId]
+      );
+      
+      isMember = memberships.length > 0;
+    }
+
+    res.render("submit", {
+      community,
+      isMember,
+      isLoggedIn: !!req.session.userId,
+      csrfToken: req.csrfToken()
+    });
+
+  } catch (error) {
+    console.error('Submit page error:', error);
+    return res.status(500).end();
+  } finally {
+    connection.release();
+  }
+});
+
+app.post("/i/CreatePost", requireAuthJson, csrfProtection, async (req, res) => {
+  const { title, content, targetLanguage, communityName } = req.body;
+  const userId = req.session.userId;
+
+  const connection = await pool.getConnection();
+  try {
+    const [[community]] = await connection.execute(
+      'SELECT id FROM communities WHERE LOWER(name) = LOWER(?)',
+      [communityName]
+    );
+
+    if (!community) {
+      return res.status(400).json({ error: 'Community not found' });
+    }
+
+    let [result] = await connection.execute(
+      'INSERT INTO posts (title, content, community_id, author_id) VALUES (?, ?, ?, ?)',
+      [title, content, community.id, userId]
+    );
+
+    res.json({ success: true, id: result.insertId });
+  } catch (error) {
+    console.error('Create post error:', error);
+    res.status(500).json({ error: 'An error occurred while creating the post' });
   } finally {
     connection.release();
   }
