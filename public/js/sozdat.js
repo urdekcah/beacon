@@ -134,8 +134,7 @@ form.addEventListener('submit', async function (e) {
     return;
   }
 
-  alert('Community created successfully!');
-  location.href = '/b/' + data.name;
+  window.location.href = '/b/'+document.getElementById('name').value;
 });
 
 updatePreview();
