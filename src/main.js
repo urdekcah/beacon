@@ -617,6 +617,90 @@ app.post("/i/UpdateSubscriptions", requireAuthJson, csrfProtection, async (req, 
   }
 });
 
+app.post("/i/UpdatePostVoteState", requireAuthJson, csrfProtection, async (req, res) => {
+  const { communityId, postId } = req.body;
+  let { voteState } = req.body;
+  const userId = req.session.userId;
+
+  const handleError = (status, message) => res.status(status).json({ error: message });
+
+  const connection = await pool.getConnection();
+
+  try {
+    const [[community]] = await connection.execute(
+      'SELECT 1 FROM communities WHERE id = ?',
+      [communityId]
+    );
+
+    if (!community) {
+      return handleError(400, 'Community not found');
+    }
+
+    const [[post]] = await connection.execute(
+      'SELECT * FROM posts WHERE id = ?',
+      [postId]
+    );
+
+    if (!post) {
+      return handleError(400, 'Post not found');
+    }
+
+    if (post.community_id !== communityId) {
+      return handleError(400, 'Post does not belong to this community');
+    }
+
+    if (voteState !== 'UP' && voteState !== 'DOWN') {
+      return handleError(400, 'Invalid vote state');
+    }
+
+    voteState = voteState === 'UP' ? 1 : -1;
+
+    await connection.beginTransaction();
+
+    const [[existingVote]] = await connection.execute(
+      'SELECT vote_type FROM votes WHERE post_id = ? AND user_id = ?',
+      [postId, userId]
+    );
+
+    if (existingVote) {
+      if (existingVote.vote_type === voteState) {
+        await connection.execute(
+          'DELETE FROM votes WHERE post_id = ? AND user_id = ?',
+          [postId, userId]
+        );
+      } else {
+        await connection.execute(
+          'UPDATE votes SET vote_type = ? WHERE post_id = ? AND user_id = ?',
+          [voteState, postId, userId]
+        );
+      }
+    } else {
+      await connection.execute(
+        'INSERT INTO votes (post_id, user_id, vote_type) VALUES (?, ?, ?)',
+        [postId, userId, voteState]
+      );
+    }
+
+    await connection.commit();
+
+    let [[_p]] = await connection.execute(
+      `SELECT p.*, u.nickname as author_username
+        FROM posts p
+        LEFT JOIN users u ON p.author_id = u.id
+        WHERE p.id = ?`,
+      [postId]
+    );
+
+    res.json({ success: true, vote_count: _p.vote_count });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Vote error:', error);
+    res.status(500).json({ error: 'An error occurred while processing your vote' });
+  } finally {
+    connection.release();
+  }
+});
+
 app.get("/dobro-pozhalovat", (req, res) => {
   res.render("welcome");
 });
