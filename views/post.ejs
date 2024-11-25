@@ -25,7 +25,7 @@
   </header>
 
   <main>
-    <article class="post">
+    <article class="post" data-pid="<%= post.id %>">
       <h1 class="post-title"><%= post.title %></h1>
       <p class="post-meta" data-timestamp="<%= post.created_at %>">
         Posted by u/<%= post.author_username %> • <span class="relative-time"></span>
@@ -58,6 +58,49 @@
     relativeTime.forEach(node => {
       const timestamp = node.parentNode.getAttribute('data-timestamp');
       node.textContent = dayjs(timestamp).fromNow();
+    });
+
+    const upvoteButtons = document.querySelectorAll('.upvote');
+    upvoteButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const postId = button.parentNode.parentNode.getAttribute('data-pid');
+        const response = await fetch(`/i/UpdatePostVoteState`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'CSRF-Token': '<%= csrfToken %>'
+          },
+          body: JSON.stringify({ 
+            communityId: Number('<%= community.id %>'),
+            postId: Number(postId),
+            voteState: 'UP'
+          })
+        });
+        const data = await response.json();
+        button.textContent = `⬆️ ${data.vote_count}`;
+      });
+    });
+
+    const downvoteButtons = document.querySelectorAll('.downvote');
+    downvoteButtons.forEach(button => {
+      button.addEventListener('click', async () => {
+        const postId = button.parentNode.parentNode.getAttribute('data-pid');
+        const response = await fetch(`/i/UpdatePostVoteState`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'CSRF-Token': '<%= csrfToken %>'
+          },
+          body: JSON.stringify({ 
+            communityId: Number('<%= community.id %>'),
+            postId: Number(postId),
+            voteState: 'DOWN'
+          })
+        });
+        const data = await response.json();
+        const upvoteButton = button.parentNode.querySelector('.upvote');
+        upvoteButton.textContent = `⬆️ ${data.vote_count}`;
+      });
     });
   </script>
 </body>

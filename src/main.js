@@ -362,6 +362,7 @@ app.get("/feed", requireAuth, csrfProtection, async (req, res) => {
     res.render('feed', {
       communities,
       posts,
+      csrfToken: req.csrfToken(),
       isLoggedIn: true
     });
   } catch (error) {

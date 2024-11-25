@@ -53,7 +53,7 @@
       </div>
       <section class="posts">
         <% posts.forEach(post => { %>
-          <article class="post">
+          <article class="post" data-pid="<%= post.id %>">
             <h2 class="post-title">
               <a href="/b/<%= community.name %>/<%= post.id %>" target="_blank"><%= post.title %></a>
             </h2>
@@ -108,6 +108,49 @@
         .then(response => {
           if (response.ok)
             window.location.reload();
+        });
+      });
+
+      const upvoteButtons = document.querySelectorAll('.upvote');
+      upvoteButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+          const postId = button.parentNode.parentNode.getAttribute('data-pid');
+          const response = await fetch(`/i/UpdatePostVoteState`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'CSRF-Token': '<%= csrfToken %>'
+            },
+            body: JSON.stringify({ 
+              communityId: Number('<%= community.id %>'),
+              postId: Number(postId),
+              voteState: 'UP'
+            })
+          });
+          const data = await response.json();
+          button.textContent = `⬆️ ${data.vote_count}`;
+        });
+      });
+
+      const downvoteButtons = document.querySelectorAll('.downvote');
+      downvoteButtons.forEach(button => {
+        button.addEventListener('click', async () => {
+          const postId = button.parentNode.parentNode.getAttribute('data-pid');
+          const response = await fetch(`/i/UpdatePostVoteState`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'CSRF-Token': '<%= csrfToken %>'
+            },
+            body: JSON.stringify({ 
+              communityId: Number('<%= community.id %>'),
+              postId: Number(postId),
+              voteState: 'DOWN'
+            })
+          });
+          const data = await response.json();
+          const upvoteButton = button.parentNode.querySelector('.upvote');
+          upvoteButton.textContent = `⬆️ ${data.vote_count}`;
         });
       });
     });
