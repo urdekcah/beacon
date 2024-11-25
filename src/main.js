@@ -78,7 +78,9 @@ const verifyPassword = async (password, hashedPassword) => {
 };
 
 app.get("/", (req, res) => {
-  res.render("index");
+  if (req.session.userId)
+    return res.redirect("/feed");
+  return res.render("index");
 });
 
 app.get("/zaregistrirovatsya", csrfProtection, (req, res) => {
@@ -330,6 +332,47 @@ app.post(
     }
   }
 );
+
+app.get("/feed", requireAuth, csrfProtection, async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const userId = req.session.userId;
+
+    const [communities] = await connection.execute(`
+      SELECT c.id, c.name, c.description, c.icon, c.color
+      FROM community_memberships cm
+      JOIN communities c ON cm.community_id = c.id
+      WHERE cm.user_id = ?
+    `, [userId]);
+
+    const communityIds = communities.map(c => c.id);
+
+    let posts = [];
+    if (communityIds.length > 0) {
+      [posts] = await connection.execute(`
+        SELECT p.*, u.username as author_username, c.name as community_name
+        FROM posts p
+        JOIN users u ON p.author_id = u.id
+        JOIN communities c ON p.community_id = c.id
+        WHERE p.community_id IN (${communityIds.map(() => '?').join(',')})
+        ORDER BY p.created_at DESC
+      `, [...communityIds]);
+    }
+
+    res.render('feed', {
+      communities,
+      posts,
+      isLoggedIn: true
+    });
+  } catch (error) {
+    console.error('Feed page error:', error);
+    res.status(500).render('error', {
+      message: 'An error occurred while loading the feed'
+    });
+  } finally {
+    connection.release();
+  }
+});
 
 app.get("/b/:name", csrfProtection, async (req, res) => {
   const connection = await pool.getConnection();

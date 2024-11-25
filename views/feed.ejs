@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Beacon</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/lenta.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="#" class="logo">Beacon</a>
+      <div class="search-bar">
+        <input type="text" placeholder="Search...">
+      </div>
+      <div class="user-actions">
+        <% if (!isLoggedIn) { %>
+          <a href="/voyti">Log In</a>
+          <a href="/zaregistrirovatsya">Sign Up</a>
+        <% }   %>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="posts">
+      <h2>Recent Posts</h2>
+        <% posts.forEach(post => { %>
+          <article class="post">
+            <h3 class="post-title">
+              <a href="/b/<%= post.community_name %>/<%= post.id %>"><%= post.title %></a>
+            </h3>
+            <p class="post-meta">
+              Posted by u/<%= post.author_username %> in <a href="/b/<%= post.community_name %>">b/<%= post.community_name %></a>
+            </p>
+            <p class="post-content"><%= post.content %></p>
+            <div class="post-actions">
+              <a href="#" class="upvote">⬆️ <%= post.vote_count %></a>
+              <a href="#" class="downvote">⬇️</a>
+              <a href="#">👁️ <%= post.view_count %></a>
+              <a href="#">🔗 Share</a>
+            </div>
+          </article>
+        <% }); %>
+    </section>
+    <aside class="sidebar">
+      <h2>Your Subscribed Communities</h2>
+      <ul>
+        <% communities.forEach(community => { %>
+          <li><a href="/b/<%= community.name %>">b/<%= community.name %></a></li>
+        <% }); %>
+      </ul>
+    </aside>
+  </main>
+</body>
+</html>
