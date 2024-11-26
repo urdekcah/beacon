@@ -7,6 +7,7 @@ const argon2 = require('argon2');
 const mysql = require("mysql2/promise");
 const session = require("express-session");
 const MySQLStore = require("express-mysql-session")(session);
+const { DatabaseConnection, UserRepository, CommunityRepository, PostRepository, VoteRepository } = require('../lib/db');
 
 const { requireAuth, requireAuthJson } = require('./middleware/auth');
 
@@ -22,6 +23,25 @@ const dbConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 };
+
+let db;
+let userRepo;
+let communityRepo;
+let postRepo;
+let voteRepo;
+
+async function initializeDatabase() {
+  db = await new DatabaseConnection(dbConfig).initialize();
+  userRepo = new UserRepository(db);
+  communityRepo = new CommunityRepository(db);
+  postRepo = new PostRepository(db);
+  voteRepo = new VoteRepository(db);
+}
+
+initializeDatabase().catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
+});
 
 const pool = mysql.createPool(dbConfig);
 const sessionStore = new MySQLStore({}, pool);
@@ -146,35 +166,16 @@ app.post(
         });
       }
 
-      await connection.beginTransaction();
-
-      const [existing] = await connection.execute(
-        'SELECT id FROM communities WHERE LOWER(name) = LOWER(?)',
-        [name]
-      );
-
-      if (existing.length > 0) {
-        await connection.rollback();
-        return res.status(400).json({
-          errors: { name: 'Community name already exists' }
+      await db.transaction(async (connection) => {
+        const result = await communityRepo.createCommunity({
+          name, description, icon, color, tags, creatorId: userId
         });
-      }
 
-      const [result] = await connection.execute(
-        `INSERT INTO communities 
-         (name, description, icon, color, tags, creator_id)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [name, description, icon, color, JSON.stringify(tags), userId]
-      );
-
-      await connection.execute(
-        `INSERT INTO community_memberships 
-         (community_id, user_id)
-         VALUES (?, ?)`,
-        [result.insertId, userId]
-      );
-
-      await connection.commit();
+        await connection.execute(
+          `INSERT INTO community_memberships (community_id, user_id) VALUES (?, ?)`,
+          [result.insertId, userId]
+        );
+      });
 
       res.status(201).json({
         success: true,
@@ -230,42 +231,33 @@ app.post(
           }, {})
         });
       }
-  
+
       const { username, email, password, birthdate, nickname, bio } = req.body;
-      const hashedPassword = await hashPassword(password);
+      const hashedPassword = await argon2.hash(password, { type: argon2.argon2id });
+
+      const result = await userRepo.createUser({
+        username,
+        email,
+        password: hashedPassword,
+        birthdate,
+        nickname,
+        bio: bio || null
+      });
+
+      req.session.userId = result.insertId;
+      req.session.username = username;
       
-      const connection = await pool.getConnection();
-      try {
-        await connection.beginTransaction();
-  
-        const [result] = await connection.execute(
-          'INSERT INTO users (username, email, password, birth_date, nickname, bio) VALUES (?, ?, ?, ?, ?, ?)',
-          [username, email, hashedPassword, birthdate, nickname, bio || null]
-        );
-  
-        await connection.commit();
-        
-        req.session.userId = result.insertId;
-        req.session.username = username;
-        
-        res.status(201).json({ message: 'User registered successfully' });
-      } catch (error) {
-        await connection.rollback();
-        
-        if (error.code === 'ER_DUP_ENTRY') {
-          if (error.message.includes('username')) {
-            return res.status(400).json({ errors: { username: 'Username already exists' } });
-          }
-          if (error.message.includes('email')) {
-            return res.status(400).json({ errors: { email: 'Email already exists' } });
-          }
-        }
-        
-        throw error;
-      } finally {
-        connection.release();
-      }
+      res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
+      if (error.code === 'ER_DUP_ENTRY') {
+        if (error.message.includes('username')) {
+          return res.status(400).json({ errors: { username: 'Username already exists' } });
+        }
+        if (error.message.includes('email')) {
+          return res.status(400).json({ errors: { email: 'Email already exists' } });
+        }
+      }
+      
       console.error('Registration error:', error);
       res.status(500).json({ error: 'An error occurred during registration' });
     }
@@ -295,37 +287,27 @@ app.post(
       }
 
       const { email, password } = req.body;
+      const user = await userRepo.findByEmail(email);
 
-      const connection = await pool.getConnection();
-      try {
-        const [users] = await connection.execute(
-          'SELECT id, username, password, nickname FROM users WHERE email = ?',
-          [email]
-        );
-
-        if (users.length === 0) {
-          return res.status(400).json({ 
-            errors: { email: 'Invalid email or password' }
-          });
-        }
-
-        const user = users[0];
-        const isValidPassword = await verifyPassword(password, user.password);
-
-        if (!isValidPassword) {
-          return res.status(400).json({ 
-            errors: { email: 'Invalid email or password' }
-          });
-        }
-
-        req.session.userId = user.id;
-        req.session.username = user.username;
-        req.session.nickname = user.nickname;
-
-        res.json({ success: true, redirectUrl: '/?home=feed' });
-      } finally {
-        connection.release();
+      if (!user) {
+        return res.status(400).json({ 
+          errors: { email: 'Invalid email or password' }
+        });
       }
+
+      const isValidPassword = await argon2.verify(user.password, password);
+
+      if (!isValidPassword) {
+        return res.status(400).json({ 
+          errors: { email: 'Invalid email or password' }
+        });
+      }
+
+      req.session.userId = user.id;
+      req.session.username = user.username;
+      req.session.nickname = user.nickname;
+
+      res.json({ success: true, redirectUrl: '/?home=feed' });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({ error: 'An error occurred during login' });
@@ -376,32 +358,19 @@ app.get("/feed", requireAuth, csrfProtection, async (req, res) => {
 });
 
 app.get("/b/:name", csrfProtection, async (req, res) => {
-  const connection = await pool.getConnection();
-
   try {
-    const [communities] = await connection.execute(
-      `SELECT c.*, u.nickname as creator_username 
-       FROM communities c 
-       LEFT JOIN users u ON c.creator_id = u.id 
-       WHERE LOWER(c.name) = LOWER(?)`,
-      [req.params.name]
-    );
+    const community = await communityRepo.findByName(req.params.name);
 
-    if (communities.length === 0) {
-      // return res.status(404).render("404", {
-      //   message: "Community not found"
-      // });
+    if (!community) {
       return res.status(404).json({ error: 'Community not found' });
     }
 
-    const community = communities[0];
-
-    const [posts] = await connection.execute(
+    const [postsResult] = await db.getPool().execute(
       `SELECT p.*, u.nickname as author_username
-        FROM posts p
-        LEFT JOIN users u ON p.author_id = u.id
-        WHERE p.community_id = ?
-        ORDER BY p.created_at DESC`,
+       FROM posts p
+       LEFT JOIN users u ON p.author_id = u.id
+       WHERE p.community_id = ?
+       ORDER BY p.created_at DESC`,
       [community.id]
     );
 
@@ -409,7 +378,7 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
     let isAdmin = false;
     
     if (req.session.userId) {
-      const [memberships] = await connection.execute(
+      const [memberships] = await db.getPool().execute(
         `SELECT * FROM community_memberships 
          WHERE community_id = ? AND user_id = ?`,
         [community.id, req.session.userId]
@@ -425,17 +394,11 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
       isAdmin,
       isLoggedIn: !!req.session.userId,
       csrfToken: req.csrfToken(),
-      posts
+      posts: postsResult
     });
-
   } catch (error) {
     console.error('Community page error:', error);
     return res.status(500).end();
-    // res.status(500).render("error", {
-    //   message: "An error occurred while loading the community"
-    // });
-  } finally {
-    connection.release();
   }
 });
 
@@ -443,20 +406,9 @@ app.get("/b/:name/submit", requireAuth, csrfProtection, async (req, res) => {
   const connection = await pool.getConnection();
 
   try {
-    const [communities] = await connection.execute(
-      `SELECT c.*, u.nickname as creator_username 
-       FROM communities c 
-       LEFT JOIN users u ON c.creator_id = u.id 
-       WHERE LOWER(c.name) = LOWER(?)`,
-      [req.params.name]
-    );
-
-    if (communities.length === 0) {
+    const community = await communityRepo.findByName(req.params.name);
+    if (!community)
       return res.status(404).json({ error: 'Community not found' });
-    }
-
-    const community = communities[0];
-    console.log(community);
 
     let isMember = false;
     
@@ -537,28 +489,29 @@ app.post("/i/CreatePost", requireAuthJson, csrfProtection, async (req, res) => {
   const { title, content, targetLanguage, communityName } = req.body;
   const userId = req.session.userId;
 
-  const connection = await pool.getConnection();
   try {
-    const [[community]] = await connection.execute(
-      'SELECT id FROM communities WHERE LOWER(name) = LOWER(?)',
-      [communityName]
-    );
-
+    const community = await communityRepo.findByName(communityName);
     if (!community) {
       return res.status(400).json({ error: 'Community not found' });
     }
 
-    let [result] = await connection.execute(
-      'INSERT INTO posts (title, content, community_id, author_id) VALUES (?, ?, ?, ?)',
-      [title, content, community.id, userId]
-    );
+    const post = await postRepo.createPost({
+      title,
+      content,
+      communityId: community.id,
+      authorId: userId
+    });
 
-    res.json({ success: true, id: result.insertId });
+    res.status(201).json({
+      success: true,
+      id: post.id
+    });
+
   } catch (error) {
     console.error('Create post error:', error);
-    res.status(500).json({ error: 'An error occurred while creating the post' });
-  } finally {
-    connection.release();
+    res.status(500).json({ 
+      error: 'An error occurred while creating the post' 
+    });
   }
 });
 
@@ -566,139 +519,76 @@ app.post("/i/UpdateSubscriptions", requireAuthJson, csrfProtection, async (req, 
   const { communityId, subscribeState } = req.body;
   const userId = req.session.userId;
 
-  const handleError = (status, message) => res.status(status).json({ error: message });
-
-  const connection = await pool.getConnection();
   try {
-    const [[community]] = await connection.execute(
-      'SELECT creator_id FROM communities WHERE id = ?',
-      [communityId]
-    );
-
+    const community = await communityRepo.findById(communityId);
     if (!community) {
-      return handleError(400, 'Community not found');
+      return res.status(400).json({ error: 'Community not found' });
     }
 
-    const [[membership]] = await connection.execute(
-      'SELECT 1 FROM community_memberships WHERE community_id = ? AND user_id = ?',
-      [communityId, userId]
-    );
+    const membership = await db.transaction(async (connection) => {
+      const [memberships] = await connection.execute(
+        'SELECT 1 FROM community_memberships WHERE community_id = ? AND user_id = ?',
+        [communityId, userId]
+      );
+      return memberships[0];
+    });
 
     if (subscribeState === 'SUBSCRIBED') {
       if (membership) {
-        return handleError(400, 'Already subscribed');
+        return res.status(400).json({ error: 'Already subscribed' });
       }
-      await connection.execute(
-        'INSERT INTO community_memberships (community_id, user_id) VALUES (?, ?)',
-        [communityId, userId]
-      );
+      await communityRepo.addMember(communityId, userId);
     } 
     else if (subscribeState === 'NONE') {
       if (community.creator_id === userId) {
-        return handleError(400, 'Owner cannot unsubscribe');
+        return res.status(400).json({ error: 'Owner cannot unsubscribe' });
       }
       if (!membership) {
-        return handleError(400, 'Not subscribed');
+        return res.status(400).json({ error: 'Not subscribed' });
       }
-      await connection.execute(
-        'DELETE FROM community_memberships WHERE community_id = ? AND user_id = ?',
-        [communityId, userId]
-      );
+      await communityRepo.removeMember(communityId, userId);
     }
     else {
-      return handleError(400, 'Invalid subscription state');
+      return res.status(400).json({ error: 'Invalid subscription state' });
     }
 
     res.json({ success: true });
   } catch (error) {
     console.error('Update subscriptions error:', error);
-    handleError(500, 'An error occurred while updating subscriptions');
-  } finally {
-    connection.release();
+    res.status(500).json({ error: 'An error occurred while updating subscriptions' });
   }
 });
 
 app.post("/i/UpdatePostVoteState", requireAuthJson, csrfProtection, async (req, res) => {
-  const { communityId, postId } = req.body;
-  let { voteState } = req.body;
+  const { voteState } = req.body;
+  const communityId = parseInt(req.body.communityId);
+  const postId = parseInt(req.body.postId);
   const userId = req.session.userId;
 
-  const handleError = (status, message) => res.status(status).json({ error: message });
-
-  const connection = await pool.getConnection();
-
   try {
-    const [[community]] = await connection.execute(
-      'SELECT 1 FROM communities WHERE id = ?',
-      [communityId]
-    );
-
+    const community = await communityRepo.findById(communityId);
     if (!community) {
-      return handleError(400, 'Community not found');
+      return res.status(400).json({ error: 'Community not found' });
     }
 
-    const [[post]] = await connection.execute(
-      'SELECT * FROM posts WHERE id = ?',
-      [postId]
-    );
-
+    const post = await postRepo.findById(postId);
     if (!post) {
-      return handleError(400, 'Post not found');
+      return res.status(400).json({ error: 'Post not found' });
     }
 
     if (post.community_id !== communityId) {
-      return handleError(400, 'Post does not belong to this community');
+      return res.status(400).json({ error: 'Post does not belong to this community' });
     }
 
-    if (voteState !== 'UP' && voteState !== 'DOWN') {
-      return handleError(400, 'Invalid vote state');
-    }
+    const voteValue = voteState === 'UP' ? 1 : -1;
+    await voteRepo.vote(postId, userId, voteValue);
+    
+    const updatedPost = await postRepo.findById(postId);
+    res.json({ success: true, vote_count: updatedPost.vote_count });
 
-    voteState = voteState === 'UP' ? 1 : -1;
-
-    await connection.beginTransaction();
-
-    const [[existingVote]] = await connection.execute(
-      'SELECT vote_type FROM votes WHERE post_id = ? AND user_id = ?',
-      [postId, userId]
-    );
-
-    if (existingVote) {
-      if (existingVote.vote_type === voteState) {
-        await connection.execute(
-          'DELETE FROM votes WHERE post_id = ? AND user_id = ?',
-          [postId, userId]
-        );
-      } else {
-        await connection.execute(
-          'UPDATE votes SET vote_type = ? WHERE post_id = ? AND user_id = ?',
-          [voteState, postId, userId]
-        );
-      }
-    } else {
-      await connection.execute(
-        'INSERT INTO votes (post_id, user_id, vote_type) VALUES (?, ?, ?)',
-        [postId, userId, voteState]
-      );
-    }
-
-    await connection.commit();
-
-    let [[_p]] = await connection.execute(
-      `SELECT p.*, u.nickname as author_username
-        FROM posts p
-        LEFT JOIN users u ON p.author_id = u.id
-        WHERE p.id = ?`,
-      [postId]
-    );
-
-    res.json({ success: true, vote_count: _p.vote_count });
   } catch (error) {
-    await connection.rollback();
     console.error('Vote error:', error);
     res.status(500).json({ error: 'An error occurred while processing your vote' });
-  } finally {
-    connection.release();
   }
 });
 
