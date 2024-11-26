@@ -95,6 +95,17 @@ app.get("/voyti", csrfProtection, (req, res) => {
   res.render("signin", { csrfToken: req.csrfToken() });
 });
 
+app.get("/vykhod", requireAuth, (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destroy error:', err);
+      return res.status(500).json({ error: 'An error occurred while logging out' });
+    }
+    res.clearCookie(process.env.COOKIE_NAME);
+    res.redirect("/");
+  });
+});
+
 app.get("/sozdat", requireAuth, csrfProtection, (req, res) => {
   res.render("create", {
     colors: CONFIG["community"]["allowed_colors"],
