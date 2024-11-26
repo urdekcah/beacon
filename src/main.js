@@ -56,8 +56,8 @@ app.use(express.static("public"));
 app.set("view engine", "ejs");
 
 app.use(session({
-  key: 'session_cookie_name',
-  secret: 'session_cookie_secret',
+  key: process.env.COOKIE_NAME || 'session_cookie_name',
+  secret: process.env.SESSION_SECRET || 'session_secret',
   store: sessionStore,
   resave: false,
   saveUninitialized: false,
@@ -80,22 +80,6 @@ function loadConfig() {
   const config = fs.readFileSync('./Beacon.toml', 'utf8');
   return TOML.parse(config);
 }
-
-const hashPassword = async (password) => {
-  try {
-    return await argon2.hash(password, { type: argon2.argon2id });
-  } catch (err) {
-    throw new Error('Error hashing password: ' + err.message);
-  }
-};
-
-const verifyPassword = async (password, hashedPassword) => {
-  try {
-    return await argon2.verify(hashedPassword, password);
-  } catch (err) {
-    throw new Error('Error verifying password: ' + err.message);
-  }
-};
 
 app.get("/", (req, res) => {
   if (req.session.userId)
@@ -319,14 +303,7 @@ app.get("/feed", requireAuth, csrfProtection, async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const userId = req.session.userId;
-
-    const [communities] = await connection.execute(`
-      SELECT c.id, c.name, c.description, c.icon, c.color
-      FROM community_memberships cm
-      JOIN communities c ON cm.community_id = c.id
-      WHERE cm.user_id = ?
-    `, [userId]);
-
+    const communities = await communityRepo.getUserCommunities(userId);
     const communityIds = communities.map(c => c.id);
 
     let posts = [];
@@ -365,15 +342,7 @@ app.get("/b/:name", csrfProtection, async (req, res) => {
       return res.status(404).json({ error: 'Community not found' });
     }
 
-    const [postsResult] = await db.getPool().execute(
-      `SELECT p.*, u.nickname as author_username
-       FROM posts p
-       LEFT JOIN users u ON p.author_id = u.id
-       WHERE p.community_id = ?
-       ORDER BY p.created_at DESC`,
-      [community.id]
-    );
-
+    const postsResult = await postRepo.findByCommunityId(community.id);
     let isMember = false;
     let isAdmin = false;
     
@@ -454,16 +423,7 @@ app.get("/b/:name/:id", csrfProtection, async (req, res) => {
     }
 
     const community = communities[0];
-
-    const [posts] = await connection.execute(
-      `SELECT p.*, u.nickname as author_username
-        FROM posts p
-        LEFT JOIN users u ON p.author_id = u.id
-        WHERE p.community_id = ?
-        ORDER BY p.created_at DESC`,
-      [community.id]
-    );
-
+    const posts = await postRepo.findByCommunityId(community.id);
     const [post] = posts.filter(p => p.id === parseInt(req.params.id));
 
     if (!post) {
@@ -582,7 +542,6 @@ app.post("/i/UpdatePostVoteState", requireAuthJson, csrfProtection, async (req, 
 
     const voteValue = voteState === 'UP' ? 1 : -1;
     await voteRepo.vote(postId, userId, voteValue);
-    
     const updatedPost = await postRepo.findById(postId);
     res.json({ success: true, vote_count: updatedPost.vote_count });
 
