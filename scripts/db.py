@@ -6,6 +6,9 @@ import re
 from colorama import init, Fore, Back, Style
 from datetime import datetime
 import sys
+from dotenv import DotEnv 
+import time
+import argparse
 
 init()
 
@@ -15,6 +18,7 @@ class SchemaExecutor:
     self.schema_dir = schema_dir
     self.connection = None
     self.cursor = None
+    self.no_confirm = False
 
   @staticmethod
   def get_timestamp():
@@ -83,6 +87,9 @@ class SchemaExecutor:
     self.connection.commit()
 
   def confirm_execution(self):
+    if self.no_confirm:
+      return True
+    
     db_exists = self.check_database_exists()
     if db_exists:
       tables = self.get_existing_tables()
@@ -118,7 +125,7 @@ class SchemaExecutor:
       
       self.log_success(f"База данных '{self.config['database']}' создана заново")
       
-      sql_files = [f for f in os.listdir(self.schema_dir) if f.endswith('.sql')]
+      sql_files = [f for f in os.listdir(self.schema_dir) if f.endswith('.sql') and f[0].isdigit()]
       sql_files.sort(key=self.natural_sort_key)
       
       total_files = len(sql_files)
@@ -156,19 +163,30 @@ class SchemaExecutor:
       self.close_connection()
 
 if __name__ == "__main__":
+  loaded_vars = DotEnv.load()
+  parser = argparse.ArgumentParser(description='MySQL Schema Executor')
+  parser.add_argument('--no-confirm', action='store_true', help='Execute schemas without confirmation')
+  parser.add_argument('--wait-for-sec', type=int, help='Wait for specified seconds before executing schemas')
+  args = parser.parse_args()
+
   print(f"{Back.BLUE}{Fore.WHITE}{'='*50}{Style.RESET_ALL}")
   print(f"{Back.BLUE}{Fore.WHITE} MySQL Schema Executor {Style.RESET_ALL}")
   print(f"{Back.BLUE}{Fore.WHITE}{'='*50}{Style.RESET_ALL}")
-  
+
+  if args.wait_for_sec:
+    print(f"{Fore.YELLOW}Ожидание {args.wait_for_sec} секунд перед выполнением схем...{Style.RESET_ALL}")
+    time.sleep(args.wait_for_sec)
+
   DB_CONFIG = {
-    'host': 'localhost',
-    'user': 'beacon',
-    'password': 'Beacon123!',
-    'database': 'beacon'
+    'host': DotEnv.get('DB_HOST', 'localhost'),
+    'user': DotEnv.get('DB_USER', 'beacon'),
+    'password': DotEnv.get('DB_PASSWORD', 'Beacon123!'),
+    'database': DotEnv.get('DB_NAME', 'beacon')
   }
   SCHEMA_DIR = 'schemas'
   
   executor = SchemaExecutor(DB_CONFIG, SCHEMA_DIR)
+  executor.no_confirm = args.no_confirm
   success = executor.execute_schemas()
   
   print(f"\n{Back.BLUE}{Fore.WHITE}{'='*50}{Style.RESET_ALL}")
