@@ -105,8 +105,6 @@ form.addEventListener('submit', async function (e) {
     formData.append('color', selectedColor);
     formData.append('icon', selectedIcon);
     formData.append('tags', Array.from(tags));
-    console.log(formData);
-    console.log(Object.fromEntries(formData));
     const response = await fetch('/sozdat', {
       method: 'POST',
       headers: {
