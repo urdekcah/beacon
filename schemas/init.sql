@@ -1,0 +1,3 @@
+GRANT SUPER ON *.* TO 'baekgeon'@'%';
+GRANT SYSTEM_VARIABLES_ADMIN ON *.* TO 'baekgeon'@'%';
+FLUSH PRIVILEGES;

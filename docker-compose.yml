@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: beacon-db
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: beacon
+      MYSQL_USER: baekgeon
+      MYSQL_PASSWORD: WowYouCanReallyDance!!
+      MYSQL_ROOT_HOST: '%'
+    networks:
+      - beacon-network
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./schemas/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db_logs:/var/log/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - beacon-network
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - app_logs:/var/log/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  beacon-network:
+    driver: bridge
+    name: beacon-internal-network
+
+volumes:
+  db_data:
+    name: beacon-db-data
+  db_logs:
+    name: beacon-db-logs
+  app_logs:
+    name: beacon-app-logs
